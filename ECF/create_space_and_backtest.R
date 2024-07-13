@@ -2,7 +2,7 @@ source("R_library.R")
 Rcpp::sourceCpp("Cpp_lib.cpp")
 
 all = 1:15
-n_max_dict = 100
+n_max_dict = 50
 
 ## read data
 data = readRDS("ECF.RDS")
@@ -15,8 +15,11 @@ data = lapply(data,TA)
 
 ## test sharpe
 data = lapply(data,na.omit)
+
+copy_data = data
+
 # data = lapply(data,function(x)x[c(T,rep(F,11)),])
-# data = data[c(1,3,6)] ## last 2 are out of sample for this test
+# data = data[c(-4)] ## last 2 are out of sample for this test
 saveRDS(object = data,file = "TA.RDS")
 
 
@@ -67,6 +70,27 @@ system.time({
   dict = create_dict(dict_,data)
 })
 
+## remove non sign
+
+str(dict,1)
+ind = lapply(1:length(dict$sharpes_short),function(x){
+  evl = dict$expected_values_long[[x]]
+  evs = dict$expected_values_short[[x]]
+  if(sum(sign(evl)) + 1 >= ncol(evl)*nrow(evl)){
+    return(T)
+  }
+  if(abs(sum(sign(evs))) + 5 >= ncol(evl)*nrow(evl)){
+    return(T)
+  }
+  return(F)
+}) %>% unlist()
+
+dict$table = dict$table[ind,]
+dict$expected_values_long = dict$expected_values_long[ind]
+dict$expected_values_short = dict$expected_values_short[ind]
+dict$sharpes_long = dict$sharpes_long[ind]
+dict$sharpes_short = dict$sharpes_short[ind]
+
 
 sharpe_short = lapply(dict$sharpes_short,function(x)c(x)) %>% unlist() %>% ecdf
 sharpe_long = lapply(dict$sharpes_long,function(x)c(x)) %>% unlist() %>% ecdf
@@ -83,6 +107,9 @@ dict$order = list(
   short_sharpe = dict$sharpes_short %>% lapply(.,mean) %>% unlist()
 )
 dict$table = as.matrix(dict$table)
+
+
+
 saveRDS(dict,"final_dict.RDS")
 
 
@@ -96,15 +123,16 @@ min_sharpe_long = 0.2
 min_sharpe_short = 0.2
 sh_mul_long = 0.1
 sh_mul_short = 0.1
-cd = 4
+cd = 8
 max_ = 5
 lev = 0.003
 
-
+data = copy_data
 
 long_dict = lapply(1:nrow(dict$table),select_long)
 short_dict = lapply(1:nrow(dict$table),select_short)
 bt = eval()
+
 
 # mini_eval(bt,data,1)
 visualize_eval(bt,data)
